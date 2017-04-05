@@ -4,8 +4,8 @@
  * and open the template in the editor.
  */
 package chess;
-import java.awt.*;
 import javax.swing.*;
+import java.awt.Image;
 import java.awt.event.*;
 import javax.imageio.*;
 import java.io.*;
@@ -28,8 +28,14 @@ public class TwoPlayer extends JFrame {
     private Socket loginSocket;
     private String fromUser;
     private String fromServer;
+    private JList list;
+    private Vector playerList;
+    public static List<LobbyPublic> publicLobbyData;
+    private ObjectOutputStream out;
+    private ObjectInputStream in;
     public TwoPlayer()
     {
+        publicLobbyData = new ArrayList<LobbyPublic>();
         try{
             frameIcon = new ImageIcon(getClass().getResource("resources/frameicon.png"));
             bgMenu = ImageIO.read(getClass().getResource("resources/menubackground.jpg"));
@@ -53,16 +59,12 @@ public class TwoPlayer extends JFrame {
             catch(UnknownHostException uke){
                 System.out.println("Login failed.");
             }
-            PrintWriter out = new PrintWriter(loginSocket.getOutputStream(), true);
-            BufferedReader in = new BufferedReader(
-                new InputStreamReader(loginSocket.getInputStream()));
+            out = new ObjectOutputStream(loginSocket.getOutputStream());
+            in = new ObjectInputStream(loginSocket.getInputStream());
         }
         catch(IOException io){
             System.out.println("I/O failed.");
         }
-        
-        
-        
         
         hotSeatButtonImage = hotSeatButtonImage.getScaledInstance(400, 100, Image.SCALE_DEFAULT);
         randomMatchButtonImage = randomMatchButtonImage.getScaledInstance(400, 100, Image.SCALE_DEFAULT);
@@ -80,18 +82,7 @@ public class TwoPlayer extends JFrame {
         
         
         
-        Vector playerList = new Vector();
         
-        
-        
-        playerList.add("Robert");
-        playerList.add("Robert");
-        playerList.add("Robert");
-        playerList.add("Robert");
-        playerList.add("Robert");
-        playerList.add("Robert");
-        playerList.add("Moo");
-        playerList.add("Paulius");
         
         hotSeat = new JButton();
         createLobby = new JButton();
@@ -111,7 +102,7 @@ public class TwoPlayer extends JFrame {
         
         
         
-        JList list = new JList(playerList);
+        list = new JList();
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setLayoutOrientation(JList.VERTICAL);
         list.setVisibleRowCount(-1);
@@ -205,9 +196,52 @@ public class TwoPlayer extends JFrame {
                 }
                 else{
                     if(buttonz.equals(createLobby)){
-                        System.out.println("TEST");
-                        CreateLobby tempWindow = new CreateLobby();
+                        CreateLobby tempWindow = new CreateLobby(out,in,loginSocket);
                         
+                    }
+                    if(buttonz.equals(refresh)){
+                        fromUser="ref$";
+                        try{
+                            out.writeObject(fromUser);
+                            try{
+                                fromServer = (String)in.readObject();
+                                System.out.println(fromServer);
+                            }
+                            catch(ClassNotFoundException cnf){
+                                System.err.println("Class has been not found.");
+                            }
+                        }
+                        catch(IOException ioex){
+                            System.err.println("IO failure.");
+                        }
+                        int state = 0;
+                        String lName="", lID="", lSecure="";
+                        for(int i = 0; i < fromServer.length() ;i++){
+                            if(fromServer.charAt(i)=='/'||fromServer.charAt(i)=='$'){
+                                if(state==2){
+                                    LobbyPublic newPublicLobby = new LobbyPublic(lName,lID,lSecure);
+                                    publicLobbyData.add(newPublicLobby);
+                                    lName=""; 
+                                    lID=""; 
+                                    lSecure="";
+                                    state=0;
+                                }
+                                else state++;
+                            }
+                            else{
+                                if(state==0)lName=lName+fromServer.charAt(i);
+                                if(state==1)lID=lID+fromServer.charAt(i);
+                                if(state==2)lSecure=lSecure+fromServer.charAt(i);
+                            }
+                        }
+                        System.out.println(publicLobbyData.get(0).getLobbyName());
+                        playerList = new Vector();
+                        for(int i = 0; i < publicLobbyData.size(); i++){
+                            playerList.add(publicLobbyData.get(i).getLobbyName());
+                        }
+                        //playerList.add(fromServer);
+                        list.setListData(playerList);
+                        list.repaint();
                     }
                 }
             }
