@@ -33,17 +33,65 @@ public class Chess extends JFrame
     private boolean ishelpdisplayed;
     private UseButtonHandler usHandler;
     private Vector<Integer> globalvector;
+    private String lName;
+    private String lID; 
+    private String lTurn; 
+    private String lWhite; 
+    private String lBlack; 
+    private int playerMove;
+    private ObjectOutputStream out; 
+    private ObjectInputStream in;
+    private int validMove;
+    private int passOriginx;
+    private int passOriginy;
+    private int passDestinationx;
+    private int passDestinationy;
     
     public Chess (int computer)
     {
+        setupVisual(computer);
         
+        
+    }
+    
+    public Chess (int computer, String tempLName, String tempLID, String tempLTurn, String tempLWhite, String tempLBlack, ObjectOutputStream tempOut, ObjectInputStream tempIn)
+    {
+        lName = tempLName;
+        lID = tempLID;
+        lTurn = tempLTurn;
+        lWhite = tempLWhite;
+        lBlack = tempLBlack;
+        out = tempOut;
+        in = tempIn;
+        passOriginx = -1;
+        passOriginy = -1;
+        passDestinationx = -1;
+        passDestinationy = -1;
+        
+        setupVisual(computer);
+        if(lTurn.equals("1")){
+            playerMove=1;
+            validMove=1;
+            setFrameTitle("Your turn");
+        }
+        else{
+            playerMove=0;
+            setFrameTitle("Not your turn.");
+            new Thread(){
+                @Override
+                public void run() {
+                    handleConnectionStart();
+                }
+            }.start();
+        }
+        
+    }
+    
+    
+    public void setupVisual(int computer){
         aiactive=computer;
-
-        
         usHandler = new UseButtonHandler();
-        
-        
-        setFrameTitle("White player's turn");
+        //setFrameTitle("White player's turn");
         lp = getLayeredPane();
         aimovemade=1;
         globalplayerturn = 1;
@@ -79,8 +127,8 @@ public class Chess extends JFrame
                 computerMove();
             }
         }
-        
     }
+    
     
     public void computerMove(){
         int[] movement = new int[4] ;
@@ -489,192 +537,322 @@ public class Chess extends JFrame
                     if (source instanceof JButton) {
                         JButton buttonz = (JButton) source;
                         
-                        
-                        JLabel labeldestination = map2.get(buttonz);
+                        if(validMove==1){
+                            JLabel labeldestination = map2.get(buttonz);
 
-                        if(tracker==0){
-                            if((globalplayerturn==1&&labeldestination.getName().toLowerCase().contains("white"))||(globalplayerturn==2&&labeldestination.getName().toLowerCase().contains("black"))){
-                                if(!labeldestination.getName().equals("empty")){
-                                    buttonz.setBorder(BorderFactory.createLineBorder(Color.orange, 2));
-                                    tracker=1;
+                            if(tracker==0){
+                                if((globalplayerturn==1&&labeldestination.getName().toLowerCase().contains("white"))||(globalplayerturn==2&&labeldestination.getName().toLowerCase().contains("black"))){
+                                    if(!labeldestination.getName().equals("empty")){
+                                        buttonz.setBorder(BorderFactory.createLineBorder(Color.orange, 2));
+                                        tracker=1;
+                                        findValidHelp(labeldestination);
 
-                                    findValidHelp(labeldestination);
+                                        ishelpdisplayed=true;
+                                        displayHelp();
+                                        clicked=buttonz;
 
-                                    ishelpdisplayed=true;
-                                    displayHelp();
-                                    clicked=buttonz;
-
-
+                                    }
                                 }
                             }
-                        }
-                        else{
-                           if(buttonz==clicked){
-                               buttonz.setBorder(BorderFactory.createLineBorder(Color.black, 1));
-                               tracker=0; 
-                               ishelpdisplayed=false;
-                               displayHelp();
+                            else{
+                               if(buttonz==clicked){
+                                   buttonz.setBorder(BorderFactory.createLineBorder(Color.black, 1));
+                                   tracker=0; 
+                                   ishelpdisplayed=false;
+                                   displayHelp();
 
-                           }
-                           else{
-                                JLabel labelprevious = map2.get(clicked);
-                                if(isMoveValid(labelprevious,labeldestination,globalplayerturn)==true){
-                                    if(labelprevious.getName().equals("blackking")){
-                                        blackcastleleft=false;
-                                        blackcastleright=false;
-                                    }
-                                    else{
-
-                                        if(labelprevious.getName().equals("whiteking")){
-                                            whitecastleleft = false;
-                                            whitecastleright = false;
+                               }
+                               else{
+                                    JLabel labelprevious = map2.get(clicked);
+                                    if(isMoveValid(labelprevious,labeldestination,globalplayerturn)==true){
+                                        if(labelprevious.getName().equals("blackking")){
+                                            blackcastleleft=false;
+                                            blackcastleright=false;
                                         }
                                         else{
-                                            if(labelprevious.getName().equals("blackrook")){
-                                                if(labelprevious.equals(testlabel[7][0])){
-                                                    blackcastleleft=false;
+
+                                            if(labelprevious.getName().equals("whiteking")){
+                                                whitecastleleft = false;
+                                                whitecastleright = false;
+                                            }
+                                            else{
+                                                if(labelprevious.getName().equals("blackrook")){
+                                                    if(labelprevious.equals(testlabel[7][0])){
+                                                        blackcastleleft=false;
+                                                    }
+                                                    else{
+                                                        if(labelprevious.equals(testlabel[7][7])){
+                                                            blackcastleright=false;
+                                                        }
+                                                    }
                                                 }
                                                 else{
-                                                    if(labelprevious.equals(testlabel[7][7])){
-                                                        blackcastleright=false;
+                                                    if(labelprevious.getName().equals("whiterook")){
+                                                        if(labelprevious.equals(testlabel[0][0])){
+                                                            whitecastleleft=false;
+                                                        }
+                                                        else{
+                                                            if(labelprevious.equals(testlabel[0][7])){
+                                                                whitecastleright=false;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        int castlingactive = 0;
+                                        if((labelprevious.getName().equals("blackking")&&labeldestination.getName().equals("blackrook"))||(labelprevious.getName().equals("whiteking")&&labeldestination.getName().equals("whiterook"))){
+
+                                            String nameprevious = labelprevious.getName();
+                                            String namedestination = labeldestination.getName();
+                                            ImageIcon icon2 = new ImageIcon(map.get(labelprevious.getName()));
+                                            ImageIcon icon3 = new ImageIcon(map.get(labeldestination.getName()));
+                                            if(labelprevious.getName().equals("blackking")){
+
+                                                if(labeldestination.equals(testlabel[7][0])){
+                                                    testlabel[7][1].setName(nameprevious);
+                                                    testlabel[7][1].setIcon(icon2);
+                                                    testlabel[7][2].setName(namedestination);
+                                                    testlabel[7][2].setIcon(icon3);
+                                                    castlingactive = 1;
+                                                }
+                                                else{
+                                                    if(labeldestination.equals(testlabel[7][7])){
+                                                        testlabel[7][5].setName(nameprevious);
+                                                        testlabel[7][5].setIcon(icon2);
+                                                        testlabel[7][4].setName(namedestination);
+                                                        testlabel[7][4].setIcon(icon3);
+                                                        castlingactive = 1;
                                                     }
                                                 }
                                             }
                                             else{
-                                                if(labelprevious.getName().equals("whiterook")){
-                                                    if(labelprevious.equals(testlabel[0][0])){
+                                                if(labeldestination.equals(testlabel[0][0])){
+                                                    testlabel[0][1].setName(nameprevious);
+                                                    testlabel[0][1].setIcon(icon2);
+                                                    testlabel[0][2].setName(namedestination);
+                                                    testlabel[0][2].setIcon(icon3);
+                                                    castlingactive = 1;
+                                                }
+                                                else{
+                                                    if(labeldestination.equals(testlabel[0][7])){
+                                                        testlabel[0][5].setName(nameprevious);
+                                                        testlabel[0][5].setIcon(icon2);
+                                                        testlabel[0][4].setName(namedestination);
+                                                        testlabel[0][4].setIcon(icon3);
+                                                        castlingactive = 1;
+                                                    }
+                                                }
+                                            }
+                                            labeldestination.setName("empty");
+                                            labeldestination.setIcon(null);
+                                            labelprevious.setName("empty");
+                                            labelprevious.setIcon(null);
+                                        }
+                                        else{
+                                            if(labeldestination.getName().equals("blackrook")&&globalplayerturn==1&&labeldestination.equals(testlabel[7][0])){
+                                                blackcastleleft=false;
+                                            }
+                                            else{
+                                                if(labeldestination.getName().equals("blackrook")&&globalplayerturn==1&&labeldestination.equals(testlabel[7][7])){
+                                                    blackcastleright=false;
+                                                }
+                                                else{
+                                                    if(labeldestination.getName().equals("whiterook")&&globalplayerturn==2&&labeldestination.equals(testlabel[0][0])){
                                                         whitecastleleft=false;
                                                     }
                                                     else{
-                                                        if(labelprevious.equals(testlabel[0][7])){
+                                                        if(labeldestination.getName().equals("whiterook")&&globalplayerturn==2&&labeldestination.equals(testlabel[0][7])){
                                                             whitecastleright=false;
                                                         }
                                                     }
                                                 }
                                             }
                                         }
-                                    }
-                                    int castlingactive = 0;
-                                    if((labelprevious.getName().equals("blackking")&&labeldestination.getName().equals("blackrook"))||(labelprevious.getName().equals("whiteking")&&labeldestination.getName().equals("whiterook"))){
-
-                                        String nameprevious = labelprevious.getName();
-                                        String namedestination = labeldestination.getName();
-                                        ImageIcon icon2 = new ImageIcon(map.get(labelprevious.getName()));
-                                        ImageIcon icon3 = new ImageIcon(map.get(labeldestination.getName()));
-                                        if(labelprevious.getName().equals("blackking")){
-
-                                            if(labeldestination.equals(testlabel[7][0])){
-                                                testlabel[7][1].setName(nameprevious);
-                                                testlabel[7][1].setIcon(icon2);
-                                                testlabel[7][2].setName(namedestination);
-                                                testlabel[7][2].setIcon(icon3);
-                                                castlingactive = 1;
-                                            }
-                                            else{
-                                                if(labeldestination.equals(testlabel[7][7])){
-                                                    testlabel[7][5].setName(nameprevious);
-                                                    testlabel[7][5].setIcon(icon2);
-                                                    testlabel[7][4].setName(namedestination);
-                                                    testlabel[7][4].setIcon(icon3);
-                                                    castlingactive = 1;
-                                                }
-                                            }
-                                        }
-                                        else{
-                                            if(labeldestination.equals(testlabel[0][0])){
-                                                testlabel[0][1].setName(nameprevious);
-                                                testlabel[0][1].setIcon(icon2);
-                                                testlabel[0][2].setName(namedestination);
-                                                testlabel[0][2].setIcon(icon3);
-                                                castlingactive = 1;
-                                            }
-                                            else{
-                                                if(labeldestination.equals(testlabel[0][7])){
-                                                    testlabel[0][5].setName(nameprevious);
-                                                    testlabel[0][5].setIcon(icon2);
-                                                    testlabel[0][4].setName(namedestination);
-                                                    testlabel[0][4].setIcon(icon3);
-                                                    castlingactive = 1;
-                                                }
-                                            }
-                                        }
-                                        labeldestination.setName("empty");
-                                        labeldestination.setIcon(null);
-                                        labelprevious.setName("empty");
-                                        labelprevious.setIcon(null);
-                                    }
-                                    else{
-                                        if(labeldestination.getName().equals("blackrook")&&globalplayerturn==1&&labeldestination.equals(testlabel[7][0])){
-                                            blackcastleleft=false;
-                                        }
-                                        else{
-                                            if(labeldestination.getName().equals("blackrook")&&globalplayerturn==1&&labeldestination.equals(testlabel[7][7])){
-                                                blackcastleright=false;
-                                            }
-                                            else{
-                                                if(labeldestination.getName().equals("whiterook")&&globalplayerturn==2&&labeldestination.equals(testlabel[0][0])){
-                                                    whitecastleleft=false;
-                                                }
-                                                else{
-                                                    if(labeldestination.getName().equals("whiterook")&&globalplayerturn==2&&labeldestination.equals(testlabel[0][7])){
-                                                        whitecastleright=false;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    if(castlingactive==0){
-                                        replacePiece(labelprevious,labeldestination,buttonz);
-                                    }
-                                    
-                                    ishelpdisplayed=false;
-                                    displayHelp();
-                                    updateContent();
-                                    clicked.setBorder(BorderFactory.createLineBorder(Color.black, 1));
-                                    tracker=0; 
-                                    if(globalplayerturn==1){
-                                        setFrameTitle("Black player's turn");
-                                        globalplayerturn=2;
-                                        if(isCheckmateActive(globalplayerturn)){
-                                            JOptionPane.showMessageDialog(null, "Checkmate! White player wins.");
-                                            setVisible(false);
-                                            dispose();
-                                        }
-                                        else{
-                                            if(isCheckActive(globalplayerturn)){
-                                                JOptionPane.showMessageDialog(null, "Check!");
-                                            }
-                                            movecounter++;
-                                        }
-                                    }
-                                    else{
-                                        setFrameTitle("White player's turn");
-                                        globalplayerturn=1;
                                         
-                                        if(isCheckmateActive(globalplayerturn)){
-                                            JOptionPane.showMessageDialog(null, "Checkmate! Black player wins.");
-                                            setVisible(false);
-                                            dispose();
+                                        for(int col = 0; col < testlabel.length; col++){
+                                            for(int row = 0; row < testlabel.length; row++){
+                                                if(labelprevious.equals(testlabel[col][row])){
+                                                    passOriginx=row;
+                                                    passOriginy=col;
+                                                }
+                                                if(labeldestination.equals(testlabel[col][row])){
+                                                    passDestinationx=row;
+                                                    passDestinationy=col;
+                                                }
+                                            }
+                                        }
+                                        
+                                        if(castlingactive==0){
+                                            replacePiece(labelprevious,labeldestination,buttonz);
+                                        }
+
+                                        
+                                        System.out.println("Test:10");
+                                        ishelpdisplayed=false;
+                                        displayHelp();
+                                        updateContent();
+                                        clicked.setBorder(BorderFactory.createLineBorder(Color.black, 1));
+                                        tracker=0; 
+                                        if(globalplayerturn==1){
+                                            setFrameTitle("Black player's turn");
+                                            globalplayerturn=2;
+                                            if(isCheckmateActive(globalplayerturn)){
+                                                JOptionPane.showMessageDialog(null, "Checkmate! White player wins.");
+                                                setVisible(false);
+                                                dispose();
+                                            }
+                                            else{
+                                                if(isCheckActive(globalplayerturn)){
+                                                    JOptionPane.showMessageDialog(null, "Check!");
+                                                }
+                                                movecounter++;
+                                            }
+                                            System.out.println("Test:11");
+                                            if(aiactive==2&&playerMove==1){
+                                                    System.out.println("Test:12");
+                                                    handleConnection(passOriginy, passOriginx, passDestinationy, passDestinationx);
+                                                    
+                                            }
+                                            else playerMove=1;
                                         }
                                         else{
-                                            if(isCheckActive(globalplayerturn)){
-                                                JOptionPane.showMessageDialog(null, "Check!");
+                                            setFrameTitle("White player's turn");
+                                            globalplayerturn=1;
+
+                                            if(isCheckmateActive(globalplayerturn)){
+                                                JOptionPane.showMessageDialog(null, "Checkmate! Black player wins.");
+                                                setVisible(false);
+                                                dispose();
                                             }
-                                            movecounter++;
-                                            if(aiactive==1){
-                                                computerMove();
+                                            else{
+                                                if(isCheckActive(globalplayerturn)){
+                                                    JOptionPane.showMessageDialog(null, "Check!");
+                                                }
+                                                movecounter++;
+                                                if(aiactive==1){
+                                                    computerMove();
+                                                }
                                             }
+                                            System.out.println("Test:11");
+                                            if(aiactive==2&&playerMove==1){
+                                                        System.out.println("Test:12");
+                                                        handleConnection(passOriginy, passOriginx, passDestinationy, passDestinationx);
+                                                
+                                            }
+                                            else playerMove=1;
                                         }
-                                    }
+                                   }
                                }
-                           }
-                       }
+                            }
+                        }
                     }
                 }
             }.start();
         }
     }   
-
+    
+    public void handleConnectionStart(){
+        validMove=0;
+        String fromUser="";
+        String fromServer="";
+        System.out.println("Test:1");
+        try{
+            try{
+                fromServer = (String)in.readObject();
+            }
+            catch(ClassNotFoundException cnf){
+                System.err.println("Class has been not found.");
+            }
+        }
+        
+        catch(IOException ioex){
+            System.err.println("IO failure.");
+        }
+        System.out.println("Test:2");
+        int state = 0;
+        String lOriginY = "";
+        String lOriginX = "";
+        String lDestinationY = "";
+        String lDestinationX = "";
+        for(int i = 0;fromServer.charAt(i)!='$';i++){
+            if(fromServer.charAt(i)=='/'||fromServer.charAt(i)=='$'){
+                state++;
+            }
+            else{
+                if(state==0)lOriginY=lOriginY+fromServer.charAt(i);
+                if(state==1)lOriginX=lOriginX+fromServer.charAt(i);
+                if(state==2)lDestinationY=lDestinationY+fromServer.charAt(i);
+                if(state==3)lDestinationX=lDestinationX+fromServer.charAt(i);
+            }
+        }
+        System.out.println("Test:3");
+        int readOriginY, readOriginX, readDestinationY, readDestinationX;
+        readOriginY = Integer.parseInt(lOriginY);
+        readOriginX = Integer.parseInt(lOriginX);
+        readDestinationY = Integer.parseInt(lDestinationY);
+        readDestinationX = Integer.parseInt(lDestinationX);
+        System.out.println("Test:4");
+        validMove=1;
+        System.out.println(readOriginY+" "+readOriginX+" "+readDestinationY+" "+readDestinationX);
+        buttons[readOriginY][readOriginX].doClick();
+        System.out.println("Test:5");
+        buttons[readDestinationY][readDestinationX].doClick();
+        System.out.println("Test:6");
+    }
+    
+    public void handleConnection(int originy, int originx, int destinationy, int destinationx){
+        validMove=0;
+        String fromUser="";
+        String fromServer="";
+        fromUser="mkm/"+Integer.toString(originy)+"/"+Integer.toString(originx)+"/"+Integer.toString(destinationy)+"/"+Integer.toString(destinationx)+"/"+lName+"/"+lID+"/"+lWhite+"/"+lBlack+"/"+lTurn+"$";
+        
+        
+        try{
+            try{
+                out.writeObject(fromUser);
+                fromServer = (String)in.readObject();
+            }
+            catch(ClassNotFoundException cnf){
+                System.err.println("Class has been not found.");
+            }
+        }
+        catch(IOException ioex){
+            System.err.println("IO failure.");
+        }
+        System.out.println(fromServer);
+        int state = 0;
+        String lOriginY = "";
+        String lOriginX = "";
+        String lDestinationY = "";
+        String lDestinationX = "";
+        for(int i = 0;fromServer.charAt(i)!='$';i++){
+            if(fromServer.charAt(i)=='/'||fromServer.charAt(i)=='$'){
+                state++;
+            }
+            else{
+                if(state==0)lOriginY=lOriginY+fromServer.charAt(i);
+                if(state==1)lOriginX=lOriginX+fromServer.charAt(i);
+                if(state==2)lDestinationY=lDestinationY+fromServer.charAt(i);
+                if(state==3)lDestinationX=lDestinationX+fromServer.charAt(i);
+            }
+        }
+        int readOriginY, readOriginX, readDestinationY, readDestinationX;
+        readOriginY = Integer.parseInt(lOriginY);
+        readOriginX = Integer.parseInt(lOriginX);
+        readDestinationY = Integer.parseInt(lDestinationY);
+        readDestinationX = Integer.parseInt(lDestinationX);
+        System.out.println(readOriginY+" "+readOriginX+" "+readDestinationY+" "+readDestinationX);
+        validMove=1;
+        playerMove=0;
+        buttons[readOriginY][readOriginX].doClick();
+        buttons[readDestinationY][readDestinationX].doClick();
+        
+        
+        //replacePiece(testlabel[readOriginY][readOriginX],testlabel[readDestinationY][readDestinationX],buttons[readDestinationY][readDestinationX]);
+        //validMove=1;
+    }
+    
     public void replacePiece(JLabel labelprevious, JLabel labeldestination, JButton buttonz){
         int promotion = 0;
         if(labelprevious.getName().toLowerCase().contains("pawn")){

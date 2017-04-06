@@ -29,6 +29,7 @@ public class TwoPlayer extends JFrame {
     private String fromUser;
     private String fromServer;
     private JList list;
+    private JScrollPane listScroller;
     private Vector playerList;
     public static List<LobbyPublic> publicLobbyData;
     private ObjectOutputStream out;
@@ -106,7 +107,7 @@ public class TwoPlayer extends JFrame {
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setLayoutOrientation(JList.VERTICAL);
         list.setVisibleRowCount(-1);
-        JScrollPane listScroller = new JScrollPane(list);
+        listScroller = new JScrollPane(list);
         
         listScroller.setBounds(100,100,200,450);
         randomMatch.setBounds(350,100,400,100);
@@ -236,12 +237,26 @@ public class TwoPlayer extends JFrame {
                         }
                         System.out.println(publicLobbyData.get(0).getLobbyName());
                         playerList = new Vector();
+                        String tempstr;
                         for(int i = 0; i < publicLobbyData.size(); i++){
-                            playerList.add(publicLobbyData.get(i).getLobbyName());
+                            tempstr="";
+                            tempstr=publicLobbyData.get(i).getLobbyName();
+                            if(publicLobbyData.get(i).getLobbySecure().equals("true"))tempstr=tempstr+" (Password Protected)";
+                            playerList.add(tempstr);
                         }
                         //playerList.add(fromServer);
+                        list.removeAll();
                         list.setListData(playerList);
                         list.repaint();
+                        
+                        
+                    }
+                    if(buttonz.equals(joinLobby)){
+                        int selection = list.getSelectedIndex();
+                        if(selection<0)JOptionPane.showMessageDialog(null,"Lobby has not been selected.", "Error", JOptionPane.ERROR_MESSAGE);
+                        else{
+                            JoinLobby tempWindow = new JoinLobby(out,in,loginSocket,selection);
+                        }
                     }
                 }
             }
